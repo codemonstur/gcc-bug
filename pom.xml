@@ -1,0 +1,118 @@
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.github.codemonstur</groupId>
+    <artifactId>gcc-bug</artifactId>
+    <version>1</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>18</maven.compiler.source>
+        <maven.compiler.target>18</maven.compiler.target>
+        <maven.compiler.release>18</maven.compiler.release>
+    </properties>
+
+    <dependencies>
+
+        <!-- Needed for the ClosureJavaScriptCompressor class -->
+        <dependency>
+            <groupId>com.googlecode.htmlcompressor</groupId>
+            <artifactId>htmlcompressor</artifactId>
+            <version>1.5.2</version>
+        </dependency>
+
+        <!--
+        When run with
+
+            $ mvn clean package
+            $ java -jar target/gcc-bug.jar
+
+        Will result in this error:
+
+        Exception in thread "main" java.lang.NoClassDefFoundError: com/google/common/io/LimitInputStream
+	        at Bug.main(Bug.java:8)
+
+        I tried some older versions at random. So far nothing works going back to v20181210. Older
+        versions give overlapping classes errors when fatjaring.
+    	-->
+
+        <dependency>
+            <groupId>com.google.javascript</groupId>
+            <artifactId>closure-compiler</artifactId>
+            <version>v20220405</version>
+        </dependency>
+
+        <!--
+        LimitInputStream is part of Guava. Suggested solution on github is to add 31.0.1-jre. This version of
+        Guava doesn't contain the LimitInputStream class. So I tried 14.0. This gives me a different error:
+
+        Exception in thread "main" java.lang.NoClassDefFoundError: com/google/javascript/jscomp/JSSourceFile
+            at com.googlecode.htmlcompressor.compressor.ClosureJavaScriptCompressor.compress(ClosureJavaScriptCompressor.java:72)
+            at Bug.main(Bug.java:9)
+        Caused by: java.lang.ClassNotFoundException: com.google.javascript.jscomp.JSSourceFile
+                at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641)
+                at java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188)
+                at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:521)
+        -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>14.0</version>
+        </dependency>
+
+
+        <!--
+        Unshaded sounds good, but the name is strange. When I use this library I get overlapping classes
+        errors with Guava. Which would imply that this library is a shaded, not an unshaded library.
+        Regardless, I get the same missing JSSourceFile error here too.
+        -->
+<!--        <dependency>-->
+<!--            <groupId>com.google.javascript</groupId>-->
+<!--            <artifactId>closure-compiler-unshaded</artifactId>-->
+<!--            <version>v20220405</version>-->
+<!--        </dependency>-->
+
+    </dependencies>
+
+    <build>
+        <finalName>${project.artifactId}</finalName>
+
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>Bug</Main-Class>
+                                        <Implementation-Title>${project.artifactId}</Implementation-Title>
+                                        <Implementation-Version>${project.version}</Implementation-Version>
+                                        <Implementation-Vendor>${project.groupId}</Implementation-Vendor>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                            <minimizeJar>${project.minimizeJar}</minimizeJar>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+</project>
